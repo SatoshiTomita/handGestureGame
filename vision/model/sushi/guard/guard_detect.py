@@ -15,7 +15,7 @@ HANDS_FAR_RATIO   = 1.20   # 両手が顔から十分“遠い”か（肩幅×�
 ARM_EXT_RATIO     = 1.30   # 肩→手首距離が長い（腕が伸びている）目安（肩幅×係数以上）
 
 # Charge（4本指のTIPを左右で近づける）
-CHARGE_TIP_RATIO  = 0.45   # 4本のTIPペア距離の平均 / 手幅 <= しきい（大きいほど緩い）
+CHARGE_TIP_RATIO  = 0.45   # 4本のTIPペア距離の平均i / 手幅 <= しきい（大きいほど緩い）
 
 DRAW_DEBUG = True          # デバッグ描画
 
