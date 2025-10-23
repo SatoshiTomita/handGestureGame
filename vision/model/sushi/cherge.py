@@ -39,7 +39,7 @@ def classify_pose(lms1, lms2, img_w, img_h):
     # --- CHARGEポーズの条件のみをチェック ---
     
     # CHARGE: 両手が近くて、指の開きが少ない（グー）
-    if close or open_ratio < 0.2: 
+    if close and open_ratio < 0.2: 
         return "CHARGE" 
         
     else:
