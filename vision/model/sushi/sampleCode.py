@@ -1,7 +1,7 @@
 import cv2 
 
 # 0 は通常ノートPCやUSBカメラのデフォルトデバイス番号
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(1)
 
 if not cap.isOpened():
     print("カメラを開けませんでした。")
