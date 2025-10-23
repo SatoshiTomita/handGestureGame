@@ -1,30 +1,28 @@
-# FirebaseとNuxtのテンプレートリポジトリ
-環境設定の手間を削減するために、よく使っている機能をテンプレートとして設定しました
+# ハンドジェスチャーゲームの審判を行うアプリ
 
-# 使用技術
-- Framework – Nuxt 
-- Backend – Firebase
-- UI – Tailwind CSS
-- Code Quality – ESLint
-- Deployment – Vercel
+## 環境構築
+### 1.リポジトリのクローン
+git clone <リポジトリのURL>
 
-# 環境構築の手段
-## 1.リポジトリをクローン
-- githubの「このテンプレートを使う」を押下し新たなリポジトリでテンプレートを使用する
-- git clone <リポジトリのURL>
-## 2. Firebaseの設定
-- Firebaseのコンソールからプロジェクトを作成する
-- @.envファイルをコピーし.envにリネームする
-- .envファイルの環境変数を変更する
-- .firebasercのdefaltを使用するproject名に変更する
+### 2. 仮想環境構築
+ルート直下で以下のコマンドを入力するとカレントディレクトリに.venv/フォルダが作成される
+```
+python -m venv .venv
+```
 
-## 3.パッケージのインストール
-- ルート直下でnpm run dev
-- functionsディレクトリに移動してnpm installを行う
+### 3.仮想環境の有効化
+macOS/Linux
+```
+source .venv/bin/activate
 
-## 4.ページ起動
-- ルート直下でnpm run dev
-- functions直下でnpm run serve
+```
+WIndows(PowerShell)
+```
+.venv\Scripts\Activate.ps1
+```
 
-## 5.deploy設定
-- vercelのページにアクセスし、プロジェクトと接続し環境変数を設定する
+### 4. pythonファイルの実行
+実行したいディレクトリへ移動し（```cd <ディレクトリ名＞```）コマンドを入力
+```
+python <ファイル名>
+```
