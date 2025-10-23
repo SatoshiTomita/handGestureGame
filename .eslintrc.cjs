@@ -1,0 +1,53 @@
+// .eslintrc.cjs
+module.exports = {
+  root: true,
+  env: { browser: true, es2021: true, node: true },
+  extends: [
+    "eslint:recommended",
+    "@nuxtjs/eslint-config-typescript",
+    "plugin:tailwindcss/recommended",
+    "prettier",
+  ],
+  parserOptions: {
+    ecmaVersion: "latest",
+    sourceType: "module",
+    parser: "@typescript-eslint/parser",
+  },
+  plugins: ["vue", "@typescript-eslint", "tailwindcss"],
+  rules: {
+    "no-console": "off",
+    "vue/multi-word-component-names": "off",
+    "vue/max-attributes-per-line": "off",
+    "vue/no-v-model-argument": 0,
+    "import/namespace": "off",
+    "no-unexpected-multiline": "error",
+    "no-unreachable": "error",
+    "tailwindcss/no-custom-classname": [
+      "warn",
+      {
+        whitelist: [
+          ".+-primary",
+          ".+-primary-admin",
+          ".+-secondary",
+          ".+-info",
+          ".+-emergency",
+          ".+-success",
+          ".+-warning",
+          ".+-error",
+          ".+-body",
+          ".+-link",
+          ".+-surface",
+          "confetti",
+          "error",
+          "drag-handle",
+          "animate-slot",
+          "animate-slot-delayed",
+          "animation-delay-200",
+          "animation-delay-300",
+          "animation-delay-400",
+          "text-stroke",
+        ],
+      },
+    ],
+  },
+};
