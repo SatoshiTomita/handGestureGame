@@ -29,14 +29,38 @@ def pick_cpu_move(cpu_power: int) -> str:
     if cpu_power <= 0: return random.choice(["CHARGE", "DEFENSE", "CHARGE"])
     return random.choice(["ATTACK", "DEFENSE", "CHARGE"])
 
+def show_overlay_preview(cap, win_title: str, text: str, ms: int = 1500):
+    """指定ミリ秒だけ、カメラ映像にテキストを重ねて表示"""
+    t_end = time.time() + (ms / 1000.0)
+    cv2.namedWindow(win_title, cv2.WINDOW_NORMAL)  # 先にウィンドウを作る
+    while time.time() < t_end:
+        ok, frame = cap.read()
+        if not ok:
+            break
+        img = frame.copy()
+        # 画面中央に表示
+        H, W = img.shape[:2]
+        (tw, _), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 1.4, 4)
+        x = (W - tw) // 2
+        y = int(H * 0.18)
+        cv2.putText(img, text, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 1.4, (0, 0, 0), 6, cv2.LINE_AA)
+        cv2.putText(img, text, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 1.4, (0, 255, 255), 3, cv2.LINE_AA)
+
+        cv2.imshow(win_title, img)
+        if (cv2.waitKey(1) & 0xFF) in [27, ord('q')]:
+            break
 def main():
     style_id = get_zundamon_style_id(ENGINE_URL, "ノーマル") if TTS_AVAILABLE else None
-    if style_id: tts_say("寿司じゃんけん、はじめるのだ！", style_id)
-
     cap = cv2.VideoCapture(0)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
+    if not cap.isOpened():
+        print("カメラを開けませんでした。接続を確認してください。")
+        return
+
+    if style_id: tts_say("寿司じゃんけん、はじめるのだ！", style_id)
+    show_overlay_preview(cap, "Sushi-Janken", "welcome", ms=2000)
     rec = SushiRecognizer(draw_debug=False, cfg=CFG())
     user_score = cpu_score = 0
 
@@ -45,7 +69,9 @@ def main():
         cpu_power  = 0
         while user_score < 2 and cpu_score < 2:
             if style_id: tts_say("パンパン、レモン！", style_id, speed=1.05)
+            show_overlay_preview(cap, "Sushi-Janken", "Pose now", ms=1300)
             if style_id: tts_say("ぽん！", style_id, speed=1.15)
+            show_overlay_preview(cap, "Sushi-Janken", "GO", ms=500)
 
             label = rec.sample_label(cap)
             if label == "__quit__":
@@ -67,18 +93,18 @@ def main():
                 x=(W-tw)//2
                 cv2.putText(img, text, (x,y), cv2.FONT_HERSHEY_SIMPLEX, scale, color, thick, cv2.LINE_AA)
 
-            overlay_center_text(img, "結果！", 120)
-            overlay_center_text(img, f"あなた: {user_move or '未検出'} / CPU: {cpu_move}", 220, scale=1.2, color=(0,120,255), thick=3)
-            overlay_center_text(img, f"Power あなた:{user_power}  CPU:{cpu_power}", 300, scale=1.2)
+            overlay_center_text(img, "result！", 120)
+            overlay_center_text(img, f"You: {user_move or 'unknown'} / CPU: {cpu_move}", 220, scale=1.2, color=(0,120,255), thick=3)
+            overlay_center_text(img, f"Power You:{user_power}  CPU:{cpu_power}", 300, scale=1.2)
 
             if outcome == "win":
                 user_score += 1
-                overlay_center_text(img, "あなたの勝ち！", 400, color=(0,200,0), thick=6)
+                overlay_center_text(img, "You win", 400, color=(0,200,0), thick=6)
             elif outcome == "lose":
                 cpu_score += 1
-                overlay_center_text(img, "あなたの負け…", 400, color=(0,0,200), thick=6)
+                overlay_center_text(img, "You lose", 400, color=(0,0,200), thick=6)
             else:
-                overlay_center_text(img, "あいこ（続行）", 400, color=(60,60,60), thick=6)
+                overlay_center_text(img, "Draw", 400, color=(60,60,60), thick=6)
 
             overlay_center_text(img, f"{user_score} - {cpu_score}", 500, scale=1.8)
             cv2.imshow("Sushi-Janken", img)
