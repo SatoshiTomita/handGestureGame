@@ -3,11 +3,8 @@ import random
 import time
 import cv2
 import numpy as np
-
 from recognizer import SushiRecognizer, CFG
 from referee import judge_cclemon
-
-# （TTSは任意。ここではフォールバック内蔵の例）
 try:
     from callGesture.callGesture import (
         get_zundamon_style_id, tts_wav_bytes, play_wav_bytes_winsound, ENGINE_URL,
@@ -32,13 +29,12 @@ def pick_cpu_move(cpu_power: int) -> str:
 def show_overlay_preview(cap, win_title: str, text: str, ms: int = 1500):
     """指定ミリ秒だけ、カメラ映像にテキストを重ねて表示"""
     t_end = time.time() + (ms / 1000.0)
-    cv2.namedWindow(win_title, cv2.WINDOW_NORMAL)  # 先にウィンドウを作る
+    cv2.namedWindow(win_title, cv2.WINDOW_NORMAL) 
     while time.time() < t_end:
         ok, frame = cap.read()
         if not ok:
             break
         img = frame.copy()
-        # 画面中央に表示
         H, W = img.shape[:2]
         (tw, _), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 1.4, 4)
         x = (W - tw) // 2
