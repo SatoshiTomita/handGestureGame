@@ -92,11 +92,18 @@ def draw_charge_icons(
     else:
         x0 = 20               
 
+    # 表示用にクリップ（負値や上限超えを安全に処理）
+    try:
+        disp = int(round(count))
+    except Exception:
+        disp = 0
+    disp = max(0, min(disp, max_count))
+
     for i in range(max_count):
         cx = x0 + i * (2*radius + gap)
         cy = y
 
-        filled = (i < max(0, int(count)))
+        filled = (i < disp)
         # 影
         cv2.circle(img, (cx+1, cy+1), radius, (0,0,0), -1, lineType=cv2.LINE_AA)
         # 本体

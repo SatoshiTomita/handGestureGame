@@ -158,10 +158,11 @@ def main():
                     "no-move": "No move detected"
                 }.get(fsm.outcome_msg, "")
                 overlay_center_text(concat, msg, 150, color=(60,60,60), thick=6)
-                draw_vs_bar(concat, decidedL, decidedR, y=300, scale=1.1)
+                draw_vs_bar(concat, finalL, finalR, y=300, scale=1.1)
                 # 最終ポーズ表示
-                put_pose_label(f1r, decidedL, decided=True)
-                put_pose_label(f2r, decidedR, decided=True)
+                put_pose_label(f1r, finalL, decided=True)
+                put_pose_label(f2r, finalR, decided=True)
+
 
             elif ph == "GAME_END":
                 overlay_center_text(concat, "Game Over", 120, scale=2.0, color=(0,0,0), thick=6)
@@ -190,6 +191,7 @@ def main():
                     fsm.outcome_msg = ""
                 elif fsm.phase.name == "GO":
                     tts.say("ぽん！")
+                    fsm.outcome_msg = ""
                 elif fsm.phase.name == "SAMPLE":
                     reset_sampling()
                 elif fsm.phase.name == "IDLE":
