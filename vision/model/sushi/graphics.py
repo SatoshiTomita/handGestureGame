@@ -67,27 +67,42 @@ def draw_vs_bar(img, p1_pose: str|None, p2_pose: str|None, y=320, scale=1.0):
     draw_part("P2: ", (230,230,230))
     draw_part(f"{p2_pose or '...'}", POSE_COLOR.get(p2_pose, (120,120,120)))
 
-def draw_pose_history(img, history: list[tuple[str|None, str|None]], max_items=5):
+
+def draw_charge_icons(
+    img,
+    count: int,
+    max_count: int = 5,
+    anchor: str = "left",   
+    y: int = 36,         
+    radius: int = 10,     
+    gap: int = 10           
+):
     """
-    履歴を下部に表示。history は [(p1_pose, p2_pose), ...] 時系列。
+    チャージ個数を丸アイコンで表示。count が満たされている個数を塗りつぶし、
+    残りは外枠のみ表示する。
     """
     H, W = img.shape[:2]
-    y = H - 20
-    items = history[-max_items:]
-    # 左（P1履歴）
-    x1 = 20
-    for (p1, _) in items:
-        label = p1 or "..."
-        cv2.putText(img, label, (x1, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
-                    POSE_COLOR.get(p1, (120,120,120)), 2, cv2.LINE_AA)
-        (w,_),_ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
-        x1 += w + 14
+    color_fill = POSE_COLOR.get("CHARGE", (255, 180, 0)) 
+    color_stroke = (40, 40, 40)
 
-    # 右（P2履歴）
-    x2 = W - 20
-    for (_, p2) in reversed(items):
-        label = p2 or "..."
-        (w,_),_ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
-        x2 -= (w + 14)
-        cv2.putText(img, label, (x2, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
-                    POSE_COLOR.get(p2, (120,120,120)), 2, cv2.LINE_AA)
+    total_w = max_count * (2*radius) + (max_count - 1) * gap
+
+    if anchor == "right":
+        x0 = W - 20 - total_w 
+    else:
+        x0 = 20               
+
+    for i in range(max_count):
+        cx = x0 + i * (2*radius + gap)
+        cy = y
+
+        filled = (i < max(0, int(count)))
+        # 影
+        cv2.circle(img, (cx+1, cy+1), radius, (0,0,0), -1, lineType=cv2.LINE_AA)
+        # 本体
+        if filled:
+            cv2.circle(img, (cx, cy), radius, color_fill, -1, lineType=cv2.LINE_AA)
+            cv2.circle(img, (cx, cy), radius, color_stroke, 2, lineType=cv2.LINE_AA)
+        else:
+            cv2.circle(img, (cx, cy), radius, (230,230,230), -1, lineType=cv2.LINE_AA)
+            cv2.circle(img, (cx, cy), radius, color_stroke, 2, lineType=cv2.LINE_AA)

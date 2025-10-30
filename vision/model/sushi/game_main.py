@@ -5,7 +5,7 @@ os.environ["GLOG_minloglevel"] = "2"
 
 from recognizer import SushiRecognizer, CFG
 from referee import judge_cclemon
-from graphics import concat_side_by_side, put_label_top, overlay_center_text, put_pose_label, draw_vs_bar, draw_pose_history
+from graphics import concat_side_by_side, put_label_top, overlay_center_text, put_pose_label, draw_vs_bar,draw_charge_icons
 from camera_stream import CameraStream
 from fsm import RoundFSM
 from tts_async import TTSWorker
@@ -94,6 +94,7 @@ def main():
                 f2 = 255 * np.ones((540, 960, 3), dtype="uint8")
 
             concat, f1r, f2r = concat_side_by_side(f1, f2)
+            Hc, Wc = concat.shape[:2]
 
             # フェーズに応じた処理（ノンブロッキング）
             ph = fsm.phase.name
@@ -169,7 +170,11 @@ def main():
             overlay_center_text(concat, f"{fsm.score_L} - {fsm.score_R}", 240, scale=1.8)
             put_label_top(f1r, f"Power {power_L}", y_ratio=0.08, scale=0.9, color=(0,120,255))
             put_label_top(f2r, f"Power {power_R}", y_ratio=0.08, scale=0.9, color=(255,120,0))
-
+            # concat の左右スライスに直接描画することで確実に表示させる
+            left_panel  = concat[:, : Wc//2]
+            right_panel = concat[:, Wc//2 :]
+            draw_charge_icons(left_panel,  count=power_L, max_count=5, anchor="left",  y=40, radius=10, gap=10)
+            draw_charge_icons(right_panel, count=power_R, max_count=5, anchor="right", y=40, radius=10, gap=10)
             # 表示（非ブロッキング）
             cv2.imshow("Sushi-Janken (2P)", concat)
             key = cv2.waitKey(1) & 0xFF
