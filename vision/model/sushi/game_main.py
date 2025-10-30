@@ -1,15 +1,17 @@
 # game_main.py
 import os, numpy as np, cv2
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
-os.environ["GLOG_minloglevel"] = "2"
-
 from recognizer import SushiRecognizer, CFG
 from referee import judge_cclemon
 from graphics import concat_side_by_side, put_label_top, overlay_center_text, put_pose_label, draw_vs_bar,draw_charge_icons
 from camera_stream import CameraStream
 from fsm import RoundFSM
 from tts_async import TTSWorker
-from effect import load_png,overlay_icon_anchored
+from effect import load_image,overlay_icon_anchored
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+os.environ["GLOG_minloglevel"] = "2"
+
+
 
 try:
     from callGesture.callGesture import (
@@ -41,7 +43,11 @@ def main():
     CHARGE_PATH = os.path.abspath(os.path.join(
         BASE_DIR, "..", "..", "images", "charge.png"             
     ))
-    charge_icon = load_png(CHARGE_PATH, height=72) 
+    SHIELD_PATH = os.path.abspath(os.path.join(BASE_DIR, "..", "..", "images", "goldshield.png"))
+    BEAM_PATH   = os.path.abspath(os.path.join(BASE_DIR, "..", "..", "images", "beam.webp"))
+    charge_icon = load_image(CHARGE_PATH, height=72)
+    shield_icon = load_image(SHIELD_PATH, height=72)
+    beam_icon   = load_image(BEAM_PATH,   height=72)
 
     style_id = get_zundamon_style_id(ENGINE_URL, "ノーマル") if TTS_AVAILABLE else None
     tts = TTSWorker(make_speak_fn(style_id), timeout=0.9)
@@ -140,10 +146,18 @@ def main():
                 put_pose_label(f1r, currL if decidedL is None else decidedL, decided=(decidedL is not None))
                 put_pose_label(f2r, currR if decidedR is None else decidedR, decided=(decidedR is not None))
 
-                if (cL or decidedL == "CHARGE"):
-                    overlay_icon_anchored(left_panel,  charge_icon, anchor="left",  y=90)
-                if (cR or decidedR == "CHARGE"):
-                    overlay_icon_anchored(right_panel, charge_icon, anchor="right", y=90)
+                # if (cL or decidedL == "CHARGE"):
+                #     overlay_icon_anchored(left_panel,  charge_icon, anchor="left",  y=90)
+                # if (gL or decidedL == "GUARD"):
+                #     overlay_icon_anchored(left_panel,  shield_icon, anchor="left",  y=150)
+                # if (aL or decidedL == "ATTACK"):
+                #     overlay_icon_anchored(left_panel,  beam_icon,   anchor="left",  y=210)
+                # if (cR or decidedR == "CHARGE"):
+                #     overlay_icon_anchored(right_panel, charge_icon, anchor="right", y=90)
+                # if (gR or decidedR == "GUARD"):
+                #     overlay_icon_anchored(right_panel, shield_icon, anchor="right", y=150)
+                # if (aR or decidedR == "ATTACK"):
+                #     overlay_icon_anchored(right_panel, beam_icon,   anchor="right", y=210)
 
             elif ph == "SHOW_RESULT":
                 # SHOW_RESULT に入った瞬間に一度だけ判定
@@ -168,8 +182,17 @@ def main():
                 try:
                     if finalL == "CHARGE":
                         overlay_icon_anchored(left_panel, charge_icon, anchor="left",  y=90)
+                    elif finalL == "GUARD":
+                        overlay_icon_anchored(left_panel, shield_icon, anchor="left",  y=90)
+                    elif finalL == "ATTACK":
+                        overlay_icon_anchored(left_panel, beam_icon,   anchor="left",  y=90)
+
                     if finalR == "CHARGE":
-                        overlay_icon_anchored(right_panel, charge_icon, anchor="right", y=90)
+                     overlay_icon_anchored(right_panel, charge_icon, anchor="right", y=90)
+                    elif finalR == "GUARD":
+                     overlay_icon_anchored(right_panel, shield_icon, anchor="right", y=90)
+                    elif finalR == "ATTACK":
+                     overlay_icon_anchored(right_panel, beam_icon,   anchor="right", y=90)
                 except NameError:
                     pass
                 overlay_center_text(concat, "result!", 80)
