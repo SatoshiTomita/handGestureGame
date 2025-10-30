@@ -1,5 +1,5 @@
 # game_main.py
-import os, time, numpy as np, cv2
+import os, numpy as np, cv2
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 os.environ["GLOG_minloglevel"] = "2"
 
@@ -9,6 +9,7 @@ from graphics import concat_side_by_side, put_label_top, overlay_center_text, pu
 from camera_stream import CameraStream
 from fsm import RoundFSM
 from tts_async import TTSWorker
+from effect import load_png,overlay_icon_anchored
 
 try:
     from callGesture.callGesture import (
@@ -36,6 +37,11 @@ def main():
     # Window
     win = "Sushi-Janken (2P)"
     cv2.namedWindow(win, cv2.WINDOW_NORMAL)
+    BASE_DIR = os.path.dirname(__file__)                       
+    CHARGE_PATH = os.path.abspath(os.path.join(
+        BASE_DIR, "..", "..", "images", "charge.png"             
+    ))
+    charge_icon = load_png(CHARGE_PATH, height=72) 
 
     style_id = get_zundamon_style_id(ENGINE_URL, "ノーマル") if TTS_AVAILABLE else None
     tts = TTSWorker(make_speak_fn(style_id), timeout=0.9)
@@ -95,9 +101,12 @@ def main():
 
             concat, f1r, f2r = concat_side_by_side(f1, f2)
             Hc, Wc = concat.shape[:2]
+            left_panel  = concat[:, : Wc//2]
+            right_panel = concat[:, Wc//2 :]
 
             # フェーズに応じた処理（ノンブロッキング）
             ph = fsm.phase.name
+
 
             if ph == "READY":
                 put_label_top(f1r, "Ready (P1)")
@@ -105,22 +114,23 @@ def main():
             elif ph == "GO":
                 put_label_top(f1r, "GO (P1)")
                 put_label_top(f2r, "GO (P2)")
+            
             elif ph == "SAMPLE":
                 # ここだけ認識を回す（毎フレーム）
-                g,a,c,_ = recL.process_frame(f1)
-                histL["g"].append(1 if g else 0)
-                histL["a"].append(1 if a else 0)
-                histL["c"].append(1 if c else 0)
+                gL,aL,cL,_ = recL.process_frame(f1)
+                histL["g"].append(1 if gL else 0)
+                histL["a"].append(1 if aL else 0)
+                histL["c"].append(1 if cL else 0)
                 # 現在推定（瞬間値）
-                currL = "CHARGE" if c else ("ATTACK" if a else ("GUARD" if g else None))
+                currL = "CHARGE" if cL else ("ATTACK" if aL else ("GUARD" if gL else None))
                 labL = stable_label(histL)
                 if labL is not None: decidedL = labL
 
-                g,a,c,_ = recR.process_frame(f2)
-                histR["g"].append(1 if g else 0)
-                histR["a"].append(1 if a else 0)
-                histR["c"].append(1 if c else 0)
-                currR = "CHARGE" if c else ("ATTACK" if a else ("GUARD" if g else None))
+                gR,aR,cR,_ = recR.process_frame(f2)
+                histR["g"].append(1 if gR else 0)
+                histR["a"].append(1 if aR else 0)
+                histR["c"].append(1 if cR else 0)
+                currR = "CHARGE" if cR else ("ATTACK" if aR else ("GUARD" if gR else None))
                 labR = stable_label(histR)
                 if labR is not None: decidedR = labR
 
@@ -129,6 +139,11 @@ def main():
                 # 表示: 現在のポーズと確定状態
                 put_pose_label(f1r, currL if decidedL is None else decidedL, decided=(decidedL is not None))
                 put_pose_label(f2r, currR if decidedR is None else decidedR, decided=(decidedR is not None))
+
+                if (cL or decidedL == "CHARGE"):
+                    overlay_icon_anchored(left_panel,  charge_icon, anchor="left",  y=90)
+                if (cR or decidedR == "CHARGE"):
+                    overlay_icon_anchored(right_panel, charge_icon, anchor="right", y=90)
 
             elif ph == "SHOW_RESULT":
                 # SHOW_RESULT に入った瞬間に一度だけ判定
@@ -150,6 +165,13 @@ def main():
                     }.get(outcome, "")
                     if say: tts.say(say)
 
+                try:
+                    if finalL == "CHARGE":
+                        overlay_icon_anchored(left_panel, charge_icon, anchor="left",  y=90)
+                    if finalR == "CHARGE":
+                        overlay_icon_anchored(right_panel, charge_icon, anchor="right", y=90)
+                except NameError:
+                    pass
                 overlay_center_text(concat, "result!", 80)
                 msg = {
                     "win": "P1 scores!",
