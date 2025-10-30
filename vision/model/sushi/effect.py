@@ -37,3 +37,10 @@ def overlay_icon_anchored(panel_bgr: np.ndarray, icon_bgra: np.ndarray,
     h, w = icon_bgra.shape[:2]
     x = (W - margin - w) if anchor == "right" else margin
     overlay_rgba(panel_bgr, icon_bgra, x, max(0, y - h // 2))
+
+def overlay_icon_center(dst_bgr: np.ndarray, icon_bgra: np.ndarray, cx: int, cy: int):
+    """アイコン中心を (cx, cy) にしてアルファ合成"""
+    h, w = icon_bgra.shape[:2]
+    x = int(cx - w // 2)
+    y = int(cy - h // 2)
+    overlay_rgba(dst_bgr, icon_bgra, x, y)

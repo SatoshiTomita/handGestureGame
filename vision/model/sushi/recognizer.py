@@ -110,13 +110,42 @@ class SushiRecognizer:
                     norm_dists = [ _dist2d_lm(left_lm[tid], right_lm[tid]) / base for tid in tip_ids ]
                     charge = (sum(norm_dists)/len(norm_dists)) <= self.cfg.CHARGE_TIP_RATIO
 
-        label = _label_from_flags(
-            guard_now=False,  # ※process_frameは“単発”なので labelはNoneにしておく
-            attack_now=False,
-            charge_now=False
-        )
-        # process_frameでは最終ラベルは返さず、上のbooleanで使い手が決める
-        return guard, attack, charge, None
+        hand_xy = None
+
+        if res_hands.multi_hand_landmarks and res_hands.multi_handedness:
+            L_xy = R_xy = None
+            for hand_lm, handed in zip(res_hands.multi_hand_landmarks, res_hands.multi_handedness):
+                wrist = hand_lm.landmark[0] 
+                xy = _to_px(wrist, W, H)
+                if handed.classification[0].label == "Left":
+                    L_xy = xy
+                else:
+                    R_xy = xy
+            if L_xy and R_xy:
+                hand_xy = ((L_xy[0] + R_xy[0]) // 2, (L_xy[1] + R_xy[1]) // 2)  # 両手の中点
+            elif L_xy:
+                hand_xy = L_xy
+            elif R_xy:
+                hand_xy = R_xy
+
+        # 2) Hands が無ければ Pose の手首でフォールバック
+        if hand_xy is None and res_pose.pose_landmarks:
+            lm = res_pose.pose_landmarks.landmark
+            try:
+                l_wr = lm[self._mp_pose.PoseLandmark.LEFT_WRIST]
+                r_wr = lm[self._mp_pose.PoseLandmark.RIGHT_WRIST]
+                L_xy = _to_px(l_wr, W, H)
+                R_xy = _to_px(r_wr, W, H)
+                if L_xy and R_xy:
+                    hand_xy = ((L_xy[0] + R_xy[0]) // 2, (L_xy[1] + R_xy[1]) // 2)
+                elif L_xy:
+                    hand_xy = L_xy
+                elif R_xy:
+                    hand_xy = R_xy
+            except Exception:
+                pass
+        info = {"hand_xy": hand_xy}
+        return guard, attack, charge, info
 
     def sample_label(self, cap) -> str:
         """短時間（CFG.SAMPLING_SEC）で安定ラベルを返す。'__quit__' でユーザー終了。"""
