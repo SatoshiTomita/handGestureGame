@@ -8,13 +8,13 @@ import cv2
 import mediapipe as mp
 
 class CFG:
-    HOLD_FRAMES = 3
-    SAMPLING_SEC = 0.9
-    NEAR_FACE_RATIO = 0.90
-    WRISTS_CLOSE_RATIO = 0.60
-    HANDS_FAR_RATIO = 1.20
-    ARM_EXT_RATIO = 1.30
-    CHARGE_TIP_RATIO = 0.45
+    HOLD_FRAMES = 2
+    SAMPLING_SEC = 1.1
+    NEAR_FACE_RATIO = 1.10
+    WRISTS_CLOSE_RATIO = 0.80
+    HANDS_FAR_RATIO = 1.10
+    ARM_EXT_RATIO = 1.15
+    CHARGE_TIP_RATIO = 0.55
 
 def _to_px(landmark, w, h): return (int(landmark.x * w), int(landmark.y * h))
 def _euclid_xy(a_xy, b_xy): return math.hypot(a_xy[0] - b_xy[0], a_xy[1] - b_xy[1])
