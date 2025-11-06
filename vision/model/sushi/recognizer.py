@@ -11,8 +11,8 @@ class CFG:
     HOLD_FRAMES = 2
     SAMPLING_SEC = 1.1
     # unko.pyの認識モデルパラメータ
-    ATTACK_PINKY_CLOSE_RATIO = 0.30  # 小指TIP間距離 / 手幅 <= しきい（小指が近い）
-    ATTACK_NON_PINKY_FAR_RATIO = 0.7  # 他3本TIPの平均距離 / 手幅 >= しきい（他が遠い）
+    ATTACK_PINKY_CLOSE_RATIO = 0.40  # 小指TIP間距離 / 手幅 <= しきい（小指が近い）- 緩和
+    ATTACK_NON_PINKY_FAR_RATIO = 0.60  # 他3本TIPの平均距離 / 手幅 >= しきい（他が遠い）- 緩和
     CHARGE_TIP_RATIO = 0.45  # 4本のTIPペア距離の平均 / 手幅 <= しきい（近い）
 
 def _to_px(landmark, w, h): return (int(landmark.x * w), int(landmark.y * h))
@@ -109,12 +109,20 @@ class SushiRecognizer:
             # 1. Charge判定
             charge = (mean_norm_tip_dist <= self.cfg.CHARGE_TIP_RATIO)
 
-            # 2. Attack判定（小指特化型）
+            # 2. Attack判定（小指特化型、改善版）
+            # 小指が近いことを主条件とし、他の指との相対的な距離差を考慮
             is_pinky_close = (norm_pinky_tip_dist <= self.cfg.ATTACK_PINKY_CLOSE_RATIO)
             is_non_pinky_far = (mean_norm_non_pinky_tip_dist is not None and 
                                mean_norm_non_pinky_tip_dist >= self.cfg.ATTACK_NON_PINKY_FAR_RATIO)
-
-            attack = bool(is_pinky_close and is_non_pinky_far)
+            
+            # 小指が他の指より明らかに近い場合もAttackと判定（相対的な差を考慮）
+            if is_pinky_close and mean_norm_non_pinky_tip_dist is not None:
+                # 小指の距離が他の指の平均距離より十分に小さい場合
+                pinky_vs_others_diff = mean_norm_non_pinky_tip_dist - norm_pinky_tip_dist
+                is_pinky_relatively_close = (pinky_vs_others_diff >= 0.15)  # 相対的な差が0.15以上
+                attack = bool(is_pinky_close and (is_non_pinky_far or is_pinky_relatively_close))
+            else:
+                attack = bool(is_pinky_close and is_non_pinky_far)
 
             # Chargeが成立した場合は、Attackを強制的にFalseにする（Charge優先）
             if charge:
