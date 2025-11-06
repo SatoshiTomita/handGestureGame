@@ -10,11 +10,10 @@ import mediapipe as mp
 class CFG:
     HOLD_FRAMES = 2
     SAMPLING_SEC = 1.1
-    NEAR_FACE_RATIO = 1.10
-    WRISTS_CLOSE_RATIO = 0.80
-    HANDS_FAR_RATIO = 1.10
-    ARM_EXT_RATIO = 1.15
-    CHARGE_TIP_RATIO = 0.55
+    # unko.pyの認識モデルパラメータ
+    ATTACK_PINKY_CLOSE_RATIO = 0.30  # 小指TIP間距離 / 手幅 <= しきい（小指が近い）
+    ATTACK_NON_PINKY_FAR_RATIO = 0.7  # 他3本TIPの平均距離 / 手幅 >= しきい（他が遠い）
+    CHARGE_TIP_RATIO = 0.45  # 4本のTIPペア距離の平均 / 手幅 <= しきい（近い）
 
 def _to_px(landmark, w, h): return (int(landmark.x * w), int(landmark.y * h))
 def _euclid_xy(a_xy, b_xy): return math.hypot(a_xy[0] - b_xy[0], a_xy[1] - b_xy[1])
@@ -52,71 +51,101 @@ class SushiRecognizer:
         if self.hands: self.hands.close()
 
     def process_frame(self, frame) -> Tuple[bool, bool, bool, Optional[str]]:
-        """1フレームから (guard, attack, charge, label or None) を返す。描画なし。"""
+        """1フレームから (guard, attack, charge, label or None) を返す。unko.pyの認識モデルロジックを使用。"""
         img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         img.flags.writeable = False
-        res_pose  = self.pose.process(img)
         res_hands = self.hands.process(img)
         img.flags.writeable = True
 
         H, W = frame.shape[:2]
         guard = attack = charge = False
+        hands_detected = False
 
-        # ---- Pose → Guard / Attack ----
-        if res_pose.pose_landmarks:
-            lm = res_pose.pose_landmarks.landmark
-            try:
-                nose = lm[self._mp_pose.PoseLandmark.NOSE]
-                l_sh = lm[self._mp_pose.PoseLandmark.LEFT_SHOULDER]
-                r_sh = lm[self._mp_pose.PoseLandmark.RIGHT_SHOULDER]
-                l_wr = lm[self._mp_pose.PoseLandmark.LEFT_WRIST]
-                r_wr = lm[self._mp_pose.PoseLandmark.RIGHT_WRIST]
-                nose_xy = _to_px(nose, W, H)
-                lsh_xy  = _to_px(l_sh, W, H)
-                rsh_xy  = _to_px(r_sh, W, H)
-                lwr_xy  = _to_px(l_wr, W, H)
-                rwr_xy  = _to_px(r_wr, W, H)
-                shoulder_width = _euclid_xy(lsh_xy, rsh_xy) if (lsh_xy and rsh_xy) else None
+        # unko.pyの認識モデルロジックを使用
+        mean_norm_tip_dist = None
+        norm_pinky_tip_dist = None
+        mean_norm_non_pinky_tip_dist = None
 
-                if shoulder_width and shoulder_width > 0:
-                    # Guard
-                    dl = _euclid_xy(nose_xy, lwr_xy)
-                    dr = _euclid_xy(nose_xy, rwr_xy)
-                    near_left  = dl <= shoulder_width * self.cfg.NEAR_FACE_RATIO
-                    near_right = dr <= shoulder_width * self.cfg.NEAR_FACE_RATIO
-                    guard = (near_left and near_right)
-                    # Attack
-                    wrists_close = _euclid_xy(lwr_xy, rwr_xy) <= shoulder_width * self.cfg.WRISTS_CLOSE_RATIO
-                    mean_hand_face = (_euclid_xy(nose_xy, lwr_xy) + _euclid_xy(nose_xy, rwr_xy)) / 2.0
-                    hands_far_from_face = mean_hand_face >= shoulder_width * self.cfg.HANDS_FAR_RATIO
-                    lw = _euclid_xy(lsh_xy, lwr_xy)
-                    rw = _euclid_xy(rsh_xy, rwr_xy)
-                    mean_arm_len = (lw + rw) / 2.0
-                    arms_extended = mean_arm_len >= shoulder_width * self.cfg.ARM_EXT_RATIO
-                    attack = bool(wrists_close and (hands_far_from_face or arms_extended))
-            except Exception:
-                pass
-
-        # ---- Hands → Charge ----
+        # ---- Hands → Charge/Attack/Guard判定 ----
         if res_hands.multi_hand_landmarks and res_hands.multi_handedness:
             left_lm = right_lm = None
             for hand_lm, handed in zip(res_hands.multi_hand_landmarks, res_hands.multi_handedness):
-                if handed.classification[0].label == "Left": left_lm = hand_lm.landmark
-                else: right_lm = hand_lm.landmark
-            if left_lm is not None and right_lm is not None:
-                tip_ids = [8, 12, 16, 20]
-                base = _safe_mean([_palm_width(left_lm), _palm_width(right_lm)])
-                if base and base > 1e-6:
-                    norm_dists = [ _dist2d_lm(left_lm[tid], right_lm[tid]) / base for tid in tip_ids ]
-                    charge = (sum(norm_dists)/len(norm_dists)) <= self.cfg.CHARGE_TIP_RATIO
+                if handed.classification[0].label == "Left":
+                    left_lm = hand_lm.landmark
+                else:
+                    right_lm = hand_lm.landmark
 
-        label = _label_from_flags(
-            guard_now=False,  # ※process_frameは“単発”なので labelはNoneにしておく
-            attack_now=False,
-            charge_now=False
-        )
-        # process_frameでは最終ラベルは返さず、上のbooleanで使い手が決める
-        return guard, attack, charge, None
+            if left_lm is not None and right_lm is not None:
+                hands_detected = True
+                tip_ids = [8, 12, 16, 20]  # Index(8), Middle(12), Ring(16), Pinky(20)
+
+                # 手幅を正規化基準として使用
+                base_left = _palm_width(left_lm)
+                base_right = _palm_width(right_lm)
+                base = _safe_mean([base_left, base_right])
+
+                if base and base > 1e-6:
+                    norm_dists_all = []
+                    norm_dists_non_pinky = []
+
+                    for tid in tip_ids:
+                        d = _dist2d_lm(left_lm[tid], right_lm[tid])
+                        norm_dists_all.append(d / base)
+
+                        if tid == 20:  # Pinky TIP ID
+                            norm_pinky_tip_dist = d / base
+                        else:
+                            norm_dists_non_pinky.append(d / base)
+
+                    # Charge判定に使う平均距離
+                    mean_norm_tip_dist = sum(norm_dists_all) / len(norm_dists_all)
+
+                    # Attack判定に使うPinky以外の平均距離
+                    if norm_dists_non_pinky:
+                        mean_norm_non_pinky_tip_dist = sum(norm_dists_non_pinky) / len(norm_dists_non_pinky)
+
+        # Charge/Attack/Guard判定の確定
+        if mean_norm_tip_dist is not None and norm_pinky_tip_dist is not None:
+            # 1. Charge判定
+            charge = (mean_norm_tip_dist <= self.cfg.CHARGE_TIP_RATIO)
+
+            # 2. Attack判定（小指特化型）
+            is_pinky_close = (norm_pinky_tip_dist <= self.cfg.ATTACK_PINKY_CLOSE_RATIO)
+            is_non_pinky_far = (mean_norm_non_pinky_tip_dist is not None and 
+                               mean_norm_non_pinky_tip_dist >= self.cfg.ATTACK_NON_PINKY_FAR_RATIO)
+
+            attack = bool(is_pinky_close and is_non_pinky_far)
+
+            # Chargeが成立した場合は、Attackを強制的にFalseにする（Charge優先）
+            if charge:
+                attack = False
+
+            # 3. Guard判定
+            # Guard判定: AttackでもChargeでもない（両手が検出されていることが前提）
+            if not attack and not charge and hands_detected:
+                guard = True
+
+        hand_xy = None
+
+        if res_hands.multi_hand_landmarks and res_hands.multi_handedness:
+            L_xy = R_xy = None
+            for hand_lm, handed in zip(res_hands.multi_hand_landmarks, res_hands.multi_handedness):
+                wrist = hand_lm.landmark[0] 
+                xy = _to_px(wrist, W, H)
+                if handed.classification[0].label == "Left":
+                    L_xy = xy
+                else:
+                    R_xy = xy
+            if L_xy and R_xy:
+                hand_xy = ((L_xy[0] + R_xy[0]) // 2, (L_xy[1] + R_xy[1]) // 2)  # 両手の中点
+            elif L_xy:
+                hand_xy = L_xy
+            elif R_xy:
+                hand_xy = R_xy
+
+        # hand_xyの計算はHandsのみを使用（Poseは使用しない）
+        info = {"hand_xy": hand_xy}
+        return guard, attack, charge, info
 
     def sample_label(self, cap) -> str:
         """短時間（CFG.SAMPLING_SEC）で安定ラベルを返す。'__quit__' でユーザー終了。"""
