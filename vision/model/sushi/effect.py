@@ -3,10 +3,25 @@ import numpy as np
 import cv2
 
 def load_image(path: str, height: int | None = None):
-    """アルファ付きPNG/WEBP等を読み込む（4ch対応）。height 指定で縦を等比リサイズ。"""
+    """アルファ付きPNG/WEBP等を読み込む（4ch対応）。height 指定で縦を等比リサイズ。
+    白背景を透過させる処理も行う。"""
     img = cv2.imread(path, cv2.IMREAD_UNCHANGED)
     if img is None:
         raise FileNotFoundError(f"Image not found: {path}")
+    
+    # アルファチャンネルがない場合、白背景を透過させる
+    if img.shape[2] == 3:  # BGR画像
+        # 白背景を検出：BGRの全てのチャンネルが高い値（200以上）であるピクセルを白とみなす
+        # より確実に白背景を除去するため、各チャンネルを個別にチェック
+        b, g, r = cv2.split(img)
+        # BGRの全てのチャンネルが200以上であるピクセルを白背景として判定
+        white_mask = (b >= 200) & (g >= 200) & (r >= 200)
+        # 白背景を透明にするため、マスクを反転してアルファチャンネルとして使用
+        alpha = (~white_mask).astype(np.uint8) * 255
+        # 4チャンネル画像に変換（BGR + Alpha）
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2BGRA)
+        img[:, :, 3] = alpha
+    
     if height:
         H, W = img.shape[:2]
         scale = height / float(H)

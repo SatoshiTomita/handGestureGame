@@ -44,7 +44,7 @@ def main():
     BASE_DIR = os.path.dirname(__file__)
     IMG_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "..", "images"))
     CHARGE_PATH = os.path.join(IMG_DIR, "charge.png")
-    SHIELD_PATH = os.path.join(IMG_DIR, "goldshield.png")
+    SHIELD_PATH = os.path.join(IMG_DIR, "goldshield.jpg")
     BEAM_PATH   = os.path.join(IMG_DIR, "beam.webp")
 
     charge_icon = load_image(CHARGE_PATH, height=72)
